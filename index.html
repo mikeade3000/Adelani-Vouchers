@@ -6,7 +6,7 @@
   <title>Voucher Upload & Approval</title>
 
   <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@sb/sb-js@2"></script>
 
   <!-- jsPDF + AutoTable for PDF export -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -256,7 +256,7 @@
       <p class="muted">This is a static (HTML/CSS/JS) app. It needs Supabase for login, database, and file uploads.</p>
       <div class="form" style="max-width:780px">
         <label>Supabase URL</label>
-        <input id="cfgUrl" placeholder="https://xxxx.supabase.co" />
+        <input id="cfgUrl" placeholder="https://xxxx.sb.co" />
         <label>Supabase anon public key</label>
         <textarea id="cfgAnon" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." ></textarea>
 
@@ -428,7 +428,7 @@
 
             <div class="card">
               <h2>Super Admin Tools</h2>
-              <p class="muted">Use Role Management to promote/demote users and Notifications to connect email/SMS automation.</p>
+              <p class="muted">Use Role Management to promote/demote users and Role Management and Audit Logs for oversight.</p>
               <div class="callout">
                 Security: keep Storage bucket private and enforce RLS policies.
               </div>
@@ -535,8 +535,8 @@
       anon: localStorage.getItem("va_supabase_anon") || ""
     };
     // Put your Supabase URL and anon key here if you prefer hardcoding:
-    cfg.url = "https://ijfwtwzhqlkmvtcdcjll.supabase.co";
-    cfg.anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZnd0d3pocWxrbXZ0Y2RjamxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NzQ1MjAsImV4cCI6MjA4MTU1MDUyMH0.X0I4VuP7Hae-xo1PPEGnXwzNyaiYlusPb21Jb5Q-g2o";
+    // cfg.url = "https://xxxx.sb.co";
+    // cfg.anon = "eyJhbGciOi...";
   </script>
 
   <script>
@@ -584,18 +584,17 @@
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
       );
     }
-    }
   </script>
 
   <script>
     // =========================
     // SUPABASE INIT
     // =========================
-    let supabase = null;
+    let sb = null;
 
     function initSupabase(){
       if (!cfg.url || !cfg.anon) return false;
-      supabase = window.supabase.createClient(cfg.url, cfg.anon, {
+      sb = window.supabase.createClient(cfg.url, cfg.anon, {
         auth: { persistSession: true, autoRefreshToken: true }
       });
       return true;
@@ -722,13 +721,13 @@ if (!profile) return;
     const regBtn = $("regBtn");
 
     logoutBtn.addEventListener("click", async ()=>{
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       session = null;
       profile = null;
       setLoggedInUI(false);
       who.textContent = "";
       toast("Logged out.");
-      if (realtimeChannel){ supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
+      if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
     });
 
     async function ensureProfileRow(user){
@@ -743,14 +742,14 @@ if (!profile) return;
       };
 
       // Upsert (id primary key)
-      const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+      const { error } = await sb.from("profiles").upsert(payload, { onConflict: "id" });
       if (error) throw error;
     }
 
     async function loadProfile(){
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await sb.auth.getUser();
       if (!user) return null;
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      const { data, error } = await sb.from("profiles").select("*").eq("id", user.id).single();
       if (error) throw error;
       return data;
     }
@@ -761,7 +760,7 @@ if (!profile) return;
         const password = loginPass.value;
         if (!email || !password){ toast("Enter email and password.", false); return; }
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
         session = data.session;
@@ -792,7 +791,7 @@ if (!profile) return;
           return;
         }
 
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await sb.auth.signUp({ email, password });
         if (error) throw error;
 
         // If email confirmation is required, user may not be signed in immediately.
@@ -890,7 +889,7 @@ if (!profile) return;
     }
 
     async function listMyVouchers(){
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from("vouchers")
         .select("*")
         .order("uploaded_at", { ascending: false })
@@ -913,7 +912,7 @@ if (!profile) return;
     }
 
     async function listVouchersForStaff(statusFilter){
-      let q = supabase
+      let q = sb
         .from("vouchers")
         .select("*, profiles:profiles!vouchers_user_id_fkey(full_name, username, email)")
         .order("uploaded_at", { ascending: false })
@@ -929,7 +928,7 @@ if (!profile) return;
 
     async function openVoucherFile(v){
       // File path is like: "<user_id>/<uuid>.<ext>"
-      const { data, error } = await supabase.storage.from("vouchers").createSignedUrl(v.file_path, 60);
+      const { data, error } = await sb.storage.from("vouchers").createSignedUrl(v.file_path, 60);
       if (error) throw error;
       window.open(data.signedUrl, "_blank", "noopener");
     }
@@ -1086,7 +1085,7 @@ th{background:#fafafa;}
       try{
         const actor = profile?.id;
         if (!actor) return;
-        const { error } = await supabase.from("audit_logs").insert([{
+        const { error } = await sb.from("audit_logs").insert([{
           actor_id: actor,
           actor_email: profile.email,
           action,
@@ -1123,7 +1122,7 @@ th{background:#fafafa;}
         }
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await sb
         .from("vouchers")
         .update(patch)
         .eq("id", v.id)
@@ -1194,7 +1193,7 @@ th{background:#fafafa;}
         const path = `${userId}/${safeName}`;
 
         // Upload to Supabase Storage bucket "vouchers"
-        const { error: upErr } = await supabase.storage.from("vouchers").upload(path, f, {
+        const { error: upErr } = await sb.storage.from("vouchers").upload(path, f, {
           cacheControl: "3600",
           upsert: false,
           contentType: f.type || "application/octet-stream"
@@ -1213,7 +1212,7 @@ th{background:#fafafa;}
           last_comment: null
         };
 
-        const { data, error } = await supabase.from("vouchers").insert([payload]).select("*").single();
+        const { data, error } = await sb.from("vouchers").insert([payload]).select("*").single();
         if (error) throw error;
 
         toast("Voucher submitted.");
@@ -1250,7 +1249,7 @@ vFile.value = "";
     // =========================
     async function loadUsersSummary(){
       // View depends on RLS; allowed for finance/chairman/super_admin (via underlying policies)
-      const { data, error } = await supabase.from("v_user_summary").select("*").limit(1000);
+      const { data, error } = await sb.from("v_user_summary").select("*").limit(1000);
       if (error) throw error;
 
       const rows = data || [];
@@ -1291,11 +1290,11 @@ vFile.value = "";
           const kind = btn.getAttribute("data-udl");
           try{
             // Pull contributor profile
-            const { data: p, error: pe } = await supabase.from("profiles").select("*").eq("id", uid).single();
+            const { data: p, error: pe } = await sb.from("profiles").select("*").eq("id", uid).single();
             if (pe) throw pe;
 
             // Pull vouchers
-            const { data: vs, error: ve } = await supabase.from("vouchers").select("*").eq("user_id", uid).order("uploaded_at", {ascending:false}).limit(2000);
+            const { data: vs, error: ve } = await sb.from("vouchers").select("*").eq("user_id", uid).order("uploaded_at", {ascending:false}).limit(2000);
             if (ve) throw ve;
 
             const prefix = (p.username || p.email || "user");
@@ -1312,7 +1311,7 @@ vFile.value = "";
     const adminSearchBtn = $("adminSearchBtn");
 
     async function loadAdminUsers(searchTerm){
-      let q = supabase.from("profiles").select("*").order("created_at", {ascending:false}).limit(1000);
+      let q = sb.from("profiles").select("*").order("created_at", {ascending:false}).limit(1000);
       if (searchTerm){
         // simple search in client: pull and filter; for large org, create RPC with ILIKE
         const { data, error } = await q;
@@ -1383,7 +1382,7 @@ vFile.value = "";
               phone: getVal("phone").trim() || null
             };
 
-            const { error } = await supabase.from("profiles").update(payload).eq("id", id);
+            const { error } = await sb.from("profiles").update(payload).eq("id", id);
             if (error) throw error;
 
             toast("User updated.");
@@ -1402,7 +1401,7 @@ vFile.value = "";
     });
 
     async function loadAudit(){
-      const { data, error } = await supabase.from("audit_logs").select("*").order("created_at", {ascending:false}).limit(300);
+      const { data, error } = await sb.from("audit_logs").select("*").order("created_at", {ascending:false}).limit(300);
       if (error) throw error;
 
       const rows = data || [];
@@ -1516,8 +1515,8 @@ vFile.value = "";
 
     function setupRealtime(){
       try{
-        if (realtimeChannel){ supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
-        realtimeChannel = supabase
+        if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
+        realtimeChannel = sb
           .channel("va-realtime")
           .on("postgres_changes", { event: "*", schema: "public", table: "vouchers" }, async (payload) => {
             // Fast refresh to reflect concurrent updates
@@ -1544,7 +1543,7 @@ vFile.value = "";
       setupFilters();
 
       // Check existing session
-      const { data: { session: s } } = await supabase.auth.getSession();
+      const { data: { session: s } } = await sb.auth.getSession();
       session = s;
 
       if (session && session.user){
@@ -1562,7 +1561,7 @@ vFile.value = "";
       }
 
       // auth state change
-      supabase.auth.onAuthStateChange(async (event, s2) => {
+      sb.auth.onAuthStateChange(async (event, s2) => {
         session = s2;
         if (event === "SIGNED_IN" && s2?.user){
           try{
@@ -1578,7 +1577,7 @@ vFile.value = "";
         if (event === "SIGNED_OUT"){
           profile = null;
           setLoggedInUI(false);
-          if (realtimeChannel){ supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
+          if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
         }
       });
     }
