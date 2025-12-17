@@ -246,6 +246,7 @@
     </div>
     <div class="userbox">
       <div id="who" class="who muted"></div>
+      <button id="settingsBtn" class="btn btn-ghost">Settings</button>
       <button id="logoutBtn" class="btn btn-ghost" style="display:none;">Logout</button>
     </div>
   </header>
@@ -579,7 +580,16 @@
       setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
     }
 
-    function uuidv4(){
+    function ensureClient(){
+  if (!sb || !sb.auth){
+    try { cfgCard.style.display = "block"; } catch(_){}
+    toast("Supabase is not configured. Click Settings and enter your Supabase URL + anon key, then Save and refresh.", false);
+    return false;
+  }
+  return true;
+}
+
+function uuidv4(){
       return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
       );
@@ -721,6 +731,7 @@ if (!profile) return;
     const regBtn = $("regBtn");
 
     logoutBtn.addEventListener("click", async ()=>{
+      if (!ensureClient()) return;
       await sb.auth.signOut();
       session = null;
       profile = null;
@@ -728,7 +739,16 @@ if (!profile) return;
       who.textContent = "";
       toast("Logged out.");
       if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    });
+    });const settingsBtn = $("settingsBtn");
+settingsBtn.addEventListener("click", ()=>{
+  // Toggle the config panel
+  const isHidden = (cfgCard.style.display === "none");
+  cfgCard.style.display = isHidden ? "block" : "none";
+  if (cfgCard.style.display !== "none"){
+    cfgCard.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+});
+
 
     async function ensureProfileRow(user){
       // Create/update profile row for this user.
@@ -755,6 +775,7 @@ if (!profile) return;
     }
 
     loginBtn.addEventListener("click", async ()=>{
+      if (!ensureClient()) return;
       try{
         const email = loginEmail.value.trim();
         const password = loginPass.value;
@@ -776,6 +797,7 @@ if (!profile) return;
     });
 
     regBtn.addEventListener("click", async ()=>{
+      if (!ensureClient()) return;
       try{
         const full_name = regName.value.trim();
         const username = regUser.value.trim();
@@ -1180,6 +1202,7 @@ th{background:#fafafa;}
     }
 
     uploadBtn.addEventListener("click", async ()=>{
+      if (!ensureClient()) return;
       try{
         const f = vFile.files && vFile.files[0];
         if (!f){ toast("Please choose a voucher file.", false); return; }
@@ -1229,6 +1252,7 @@ vFile.value = "";
 
     // Contributor exports
     myHtmlBtn.addEventListener("click", async ()=>{
+      if (!ensureClient()) return;
       try{
         const vouchers = await listMyVouchers();
         downloadSummaryHtml(profile, vouchers, (profile.username || profile.email || "me"));
@@ -1236,6 +1260,7 @@ vFile.value = "";
     });
 
     myPdfBtn.addEventListener("click", async ()=>{
+      if (!ensureClient()) return;
       try{
         const vouchers = await listMyVouchers();
         downloadSummaryPdf(profile, vouchers, (profile.username || profile.email || "me"));
@@ -1534,7 +1559,7 @@ vFile.value = "";
     async function bootstrap(){
       const ok = initSupabase();
       if (!ok){
-        // Supabase not set yet; keep config panel visible
+        try { cfgCard.style.display = "block"; } catch(_){ }
         setLoggedInUI(false);
         return;
       }
