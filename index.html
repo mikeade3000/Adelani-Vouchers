@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Voucher Upload & Approval</title>
 
-  <!-- Supabase JS -->
-  <script src="https://cdn.jsdelivr.net/npm/@sb/sb-js@2"></script>
+  <!-- Supabase JS (we will lazy-load fallback inside the app if this CDN fails) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- jsPDF + AutoTable for PDF export -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -25,8 +25,6 @@
       --primary:#1d4ed8;
       --primary2:#0ea5e9;
       --danger:#b91c1c;
-      --ok:#047857;
-      --warn:#b45309;
     }
 
     *{box-sizing:border-box}
@@ -65,7 +63,7 @@
     .brand-title{font-size:18px; font-weight:700; letter-spacing:.2px}
     .brand-sub{font-size:12px; color:var(--muted)}
 
-    .userbox{display:flex; gap:12px; align-items:center}
+    .userbox{display:flex; gap:10px; align-items:center}
     .who{font-size:13px}
     .muted{color:var(--muted)}
 
@@ -214,9 +212,10 @@
       box-shadow: var(--shadow);
       border-radius: 14px;
       padding: 12px 12px;
-      max-width: 460px;
+      max-width: 520px;
       font-size: 13px;
       display:none;
+      z-index: 9999;
     }
 
     .small{font-size:12px}
@@ -230,7 +229,6 @@
       border-radius: 999px;
       font-size: 12px;
     }
-    .dangerText{color:var(--danger)}
   </style>
 </head>
 <body>
@@ -254,11 +252,11 @@
   <main class="container">
     <section class="card" id="configCard">
       <h2>Supabase Configuration</h2>
-      <p class="muted">This is a static (HTML/CSS/JS) app. It needs Supabase for login, database, and file uploads.</p>
+      <p class="muted">This is a static app. It needs Supabase for login, database, and file uploads.</p>
       <div class="form" style="max-width:780px">
-        <label>Supabase URL</label>
-        <input id="cfgUrl" placeholder="https://xxxx.sb.co" />
-        <label>Supabase anon public key</label>
+        <label for="cfgUrl">Supabase URL</label>
+        <input id="cfgUrl" placeholder="https://xxxx.supabase.co" />
+        <label for="cfgAnon">Supabase anon public key</label>
         <textarea id="cfgAnon" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." ></textarea>
 
         <div class="row">
@@ -267,7 +265,7 @@
         </div>
 
         <div class="callout">
-          After you save, refresh the page. If you already saved previously, this panel will collapse automatically.
+          After you save, refresh the page. You can reopen this panel any time using <strong>Settings</strong>.
           <div class="small muted" style="margin-top:6px">
             Security note: anon key is safe to embed in a public site when RLS policies are configured correctly.
           </div>
@@ -280,9 +278,9 @@
         <h2>Login</h2>
         <p class="muted">Login with email and password.</p>
         <div class="form">
-          <label>Email</label>
+          <label for="loginEmail">Email</label>
           <input id="loginEmail" type="email" placeholder="name@example.com" autocomplete="username" />
-          <label>Password</label>
+          <label for="loginPass">Password</label>
           <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
           <button id="loginBtn" class="btn btn-primary">Login</button>
           <div class="hint muted">
@@ -295,15 +293,15 @@
         <h2>Register as Contributor</h2>
         <p class="muted">New users register here (Contributor role only).</p>
         <div class="form">
-          <label>Full name</label>
+          <label for="regName">Full name</label>
           <input id="regName" placeholder="Full name" />
-          <label>Username</label>
+          <label for="regUser">Username</label>
           <input id="regUser" placeholder="username (unique)" />
-          <label>Email</label>
+          <label for="regEmail">Email</label>
           <input id="regEmail" type="email" placeholder="name@example.com" />
-          <label>Password</label>
+          <label for="regPass">Password</label>
           <input id="regPass" type="password" placeholder="Minimum 8 characters" />
-          <label>Phone (optional)</label>
+          <label for="regPhone">Phone (optional)</label>
           <input id="regPhone" placeholder="+2567xxxxxxx" />
           <button id="regBtn" class="btn btn-secondary">Create account</button>
           <div class="hint muted">
@@ -319,26 +317,25 @@
         <button class="tab" data-tab="users">Users Summary</button>
         <button class="tab" data-tab="admin" id="adminTabBtn" style="display:none;">Role Management</button>
         <button class="tab" data-tab="audit" id="auditTabBtn" style="display:none;">Audit Logs</button>
-<button class="tab" data-tab="help">Help</button>
+        <button class="tab" data-tab="help">Help</button>
       </div>
 
       <div id="tab-dashboard" class="tabpanel">
         <div id="roleBanner" class="role-banner"></div>
 
-        <!-- Contributor -->
         <div id="contributorPanel" style="display:none;">
           <div class="grid2">
             <div class="card">
               <h2>Upload Payment Voucher</h2>
               <p class="muted">Attach your voucher and fill in the payment details.</p>
               <div class="form">
-                <label>Voucher file (PDF/JPG/PNG)</label>
+                <label for="vFile">Voucher file (PDF/JPG/PNG)</label>
                 <input id="vFile" type="file" accept=".pdf,.png,.jpg,.jpeg" />
-                <label>Date paid</label>
+                <label for="vDate">Date paid</label>
                 <input id="vDate" type="date" />
-                <label>Amount paid</label>
+                <label for="vAmount">Amount paid</label>
                 <input id="vAmount" type="number" step="0.01" placeholder="e.g., 150000" />
-                <label>Bank paid</label>
+                <label for="vBank">Bank paid</label>
                 <input id="vBank" placeholder="e.g., Stanbic Bank" />
                 <button id="uploadBtn" class="btn btn-primary">Submit Voucher</button>
                 <div class="hint muted">Status flow: <strong>submitted</strong> → <strong>authenticated</strong> → <strong>approved</strong></div>
@@ -360,7 +357,6 @@
           </div>
         </div>
 
-        <!-- Finance -->
         <div id="financePanel" style="display:none;">
           <div class="grid2">
             <div class="card">
@@ -386,7 +382,6 @@
           </div>
         </div>
 
-        <!-- Chairman -->
         <div id="chairmanPanel" style="display:none;">
           <div class="grid2">
             <div class="card">
@@ -411,7 +406,6 @@
           </div>
         </div>
 
-        <!-- Super Admin -->
         <div id="superAdminPanel" style="display:none;">
           <div class="grid2">
             <div class="card">
@@ -429,7 +423,7 @@
 
             <div class="card">
               <h2>Super Admin Tools</h2>
-              <p class="muted">Use Role Management to promote/demote users and Role Management and Audit Logs for oversight.</p>
+              <p class="muted">Use Role Management and Audit Logs for oversight.</p>
               <div class="callout">
                 Security: keep Storage bucket private and enforce RLS policies.
               </div>
@@ -457,7 +451,7 @@
             </div>
             <div class="divider"></div>
             <div class="form">
-              <label>Search by username/email</label>
+              <label for="adminSearch">Search by username/email</label>
               <input id="adminSearch" placeholder="e.g., michael" />
               <button id="adminSearchBtn" class="btn btn-ghost">Search</button>
             </div>
@@ -486,25 +480,6 @@
           <div id="auditLogs" class="tablewrap"></div>
         </div>
       </div>
-<div class="hint muted">
-              The app will POST JSON on these events: voucher_submitted, voucher_authenticated, voucher_approved, voucher_rejected.
-            </div>
-          </div>
-
-          <div class="card">
-            <h2>Webhook Test</h2>
-            <p class="muted">Send a test event to confirm your automation is receiving payloads.</p>
-            <div class="form">
-              <label>Test message</label>
-              <input id="notifyTestMsg" placeholder="Test notification from Voucher App" />
-              <button id="notifyTestBtn" class="btn btn-ghost">Send Test</button>
-            </div>
-            <div class="callout">
-              If you want, I can also provide a Make/Zapier scenario template for email + SMS.
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div id="tab-help" class="tabpanel" style="display:none;">
         <div class="card">
@@ -517,7 +492,7 @@
             <li><strong>Concurrency:</strong> Realtime updates refresh lists when other users act.</li>
           </ul>
           <div class="callout">
-            Setup checklist: run <code>supabase_schema.sql</code>, create Storage bucket <code>vouchers</code>, then set Supabase URL + anon key in the Configuration panel.
+            Setup checklist: run <code>supabase_schema.sql</code>, create Storage bucket <code>vouchers</code>, enable realtime for <code>vouchers</code>, then set Supabase URL + anon key in Settings.
           </div>
         </div>
       </div>
@@ -535,9 +510,6 @@
       url: localStorage.getItem("va_supabase_url") || "",
       anon: localStorage.getItem("va_supabase_anon") || ""
     };
-    // Put your Supabase URL and anon key here if you prefer hardcoding:
-    // cfg.url = "https://xxxx.sb.co";
-    // cfg.anon = "eyJhbGciOi...";
   </script>
 
   <script>
@@ -552,7 +524,7 @@
       toastEl.style.display = "block";
       toastEl.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">${ok ? "OK" : "Notice"}</div><div>${escapeHtml(msg)}</div>`;
       clearTimeout(window.__toastT);
-      window.__toastT = setTimeout(()=>{toastEl.style.display="none";}, 4200);
+      window.__toastT = setTimeout(()=>{toastEl.style.display="none";}, 5200);
     }
 
     function money(x){
@@ -580,19 +552,21 @@
       setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
     }
 
-    function ensureClient(){
-  if (!sb || !sb.auth){
-    try { cfgCard.style.display = "block"; } catch(_){}
-    toast("Supabase is not configured. Click Settings and enter your Supabase URL + anon key, then Save and refresh.", false);
-    return false;
-  }
-  return true;
-}
-
-function uuidv4(){
+    function uuidv4(){
       return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
         (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
       );
+    }
+
+    function loadScript(src){
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve(true);
+        s.onerror = () => reject(new Error("Failed to load: " + src));
+        document.head.appendChild(s);
+      });
     }
   </script>
 
@@ -602,23 +576,23 @@ function uuidv4(){
     // =========================
     let sb = null;
 
-    function initSupabase(){
-      if (!cfg.url || !cfg.anon) return false;
-      sb = window.supabase.createClient(cfg.url, cfg.anon, {
-        auth: { persistSession: true, autoRefreshToken: true }
-      });
-      return true;
-    }
-
-    // Config UI
     const cfgCard = $("configCard");
     const cfgUrl = $("cfgUrl");
     const cfgAnon = $("cfgAnon");
     const cfgSaveBtn = $("cfgSaveBtn");
     const cfgClearBtn = $("cfgClearBtn");
+    const settingsBtn = $("settingsBtn");
 
     cfgUrl.value = cfg.url;
     cfgAnon.value = cfg.anon;
+
+    settingsBtn.addEventListener("click", ()=>{
+      const isHidden = (cfgCard.style.display === "none");
+      cfgCard.style.display = isHidden ? "block" : "none";
+      if (cfgCard.style.display !== "none"){
+        cfgCard.scrollIntoView({behavior:"smooth", block:"start"});
+      }
+    });
 
     cfgSaveBtn.addEventListener("click", ()=>{
       const u = cfgUrl.value.trim();
@@ -637,8 +611,49 @@ function uuidv4(){
       setTimeout(()=>location.reload(), 600);
     });
 
+    async function ensureSupabaseLoaded(){
+      if (window.supabase && window.supabase.createClient) return true;
+
+      // Fallback CDNs
+      const fallbacks = [
+        "https://unpkg.com/@supabase/supabase-js@2",
+        "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+      ];
+      for (const u of fallbacks){
+        try{
+          await loadScript(u);
+          if (window.supabase && window.supabase.createClient) return true;
+        }catch(_){}
+      }
+      return false;
+    }
+
+    async function initSupabase(){
+      if (!cfg.url || !cfg.anon) return false;
+
+      const ok = await ensureSupabaseLoaded();
+      if (!ok){
+        toast("Supabase library did not load. Check internet access to CDN (jsdelivr/unpkg) or try another network.", false);
+        return false;
+      }
+
+      sb = window.supabase.createClient(cfg.url, cfg.anon, {
+        auth: { persistSession: true, autoRefreshToken: true }
+      });
+      return true;
+    }
+
+    function ensureClient(){
+      if (!sb || !sb.auth){
+        cfgCard.style.display = "block";
+        toast("Supabase is not configured. Click Settings and enter your Supabase URL + anon key, then Save and refresh.", false);
+        return false;
+      }
+      return true;
+    }
+
+    // Auto-collapse config if values exist; Settings can reopen anytime.
     if (cfg.url && cfg.anon){
-      // Collapse config
       cfgCard.style.display = "none";
     }
   </script>
@@ -660,7 +675,8 @@ function uuidv4(){
 
     const adminTabBtn = $("adminTabBtn");
     const auditTabBtn = $("auditTabBtn");
-const myVouchersEl = $("myVouchers");
+
+    const myVouchersEl = $("myVouchers");
     const myKpiEl = $("myKpi");
     const financeVouchersEl = $("financeVouchers");
     const chairVouchersEl = $("chairVouchers");
@@ -669,10 +685,6 @@ const myVouchersEl = $("myVouchers");
     const usersSummaryEl = $("usersSummary");
     const adminUsersEl = $("adminUsers");
     const auditLogsEl = $("auditLogs");
-        return;
-      }
-toast("Test sent (best-effort). Check your automation logs.");
-    });
 
     let session = null;
     let profile = null;
@@ -695,10 +707,10 @@ toast("Test sent (best-effort). Check your automation logs.");
       superAdminPanel.style.display = "none";
       adminTabBtn.style.display = "none";
       auditTabBtn.style.display = "none";
-if (!profile) return;
+
+      if (!profile) return;
 
       who.textContent = `${profile.full_name} (${profile.username || profile.email || "-"}) • ${profile.role}`;
-
       roleBanner.innerHTML = `<strong>Role:</strong> ${escapeHtml(profile.role)} &nbsp; <span class="muted">| Concurrent multi-user via Supabase Realtime.</span>`;
 
       if (profile.role === "contributor"){
@@ -711,7 +723,7 @@ if (!profile) return;
         superAdminPanel.style.display = "block";
         adminTabBtn.style.display = "inline-block";
         auditTabBtn.style.display = "inline-block";
-}
+      }
     }
   </script>
 
@@ -739,19 +751,9 @@ if (!profile) return;
       who.textContent = "";
       toast("Logged out.");
       if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
-    });const settingsBtn = $("settingsBtn");
-settingsBtn.addEventListener("click", ()=>{
-  // Toggle the config panel
-  const isHidden = (cfgCard.style.display === "none");
-  cfgCard.style.display = isHidden ? "block" : "none";
-  if (cfgCard.style.display !== "none"){
-    cfgCard.scrollIntoView({behavior:"smooth", block:"start"});
-  }
-});
-
+    });
 
     async function ensureProfileRow(user){
-      // Create/update profile row for this user.
       const payload = {
         id: user.id,
         email: user.email,
@@ -760,8 +762,6 @@ settingsBtn.addEventListener("click", ()=>{
         role: "contributor",
         phone: regPhone.value.trim() || null
       };
-
-      // Upsert (id primary key)
       const { error } = await sb.from("profiles").upsert(payload, { onConflict: "id" });
       if (error) throw error;
     }
@@ -775,8 +775,8 @@ settingsBtn.addEventListener("click", ()=>{
     }
 
     loginBtn.addEventListener("click", async ()=>{
-      if (!ensureClient()) return;
       try{
+        if (!ensureClient()) return;
         const email = loginEmail.value.trim();
         const password = loginPass.value;
         if (!email || !password){ toast("Enter email and password.", false); return; }
@@ -797,8 +797,8 @@ settingsBtn.addEventListener("click", ()=>{
     });
 
     regBtn.addEventListener("click", async ()=>{
-      if (!ensureClient()) return;
       try{
+        if (!ensureClient()) return;
         const full_name = regName.value.trim();
         const username = regUser.value.trim();
         const email = regEmail.value.trim();
@@ -816,13 +816,8 @@ settingsBtn.addEventListener("click", ()=>{
         const { data, error } = await sb.auth.signUp({ email, password });
         if (error) throw error;
 
-        // If email confirmation is required, user may not be signed in immediately.
         if (data.user){
-          // Create profile row now (works if session exists). If confirmation required, ask them to login after confirming.
-          try{
-            // Temporarily set form values for ensureProfileRow
-            await ensureProfileRow(data.user);
-          }catch(_){}
+          try{ await ensureProfileRow(data.user); } catch(_){}
         }
 
         toast("Registration successful. Please check email for confirmation if enabled, then login.");
@@ -845,7 +840,7 @@ settingsBtn.addEventListener("click", ()=>{
     const myHtmlBtn = $("myHtmlBtn");
     const myPdfBtn = $("myPdfBtn");
 
-    function voucherTable(rows, roleMode){
+    function voucherTable(rows){
       const canFinanceAct = (profile.role === "finance_admin" || profile.role === "super_admin");
       const canChairAct = (profile.role === "chairman" || profile.role === "super_admin");
 
@@ -869,8 +864,8 @@ settingsBtn.addEventListener("click", ()=>{
       };
 
       const contributorCell = (v) => {
-        const name = v.profiles?.full_name || v.contributor_name || "-";
-        const uname = v.profiles?.username || v.contributor_username || v.profiles?.email || "-";
+        const name = v.profiles?.full_name || "-";
+        const uname = v.profiles?.username || v.profiles?.email || "-";
         return `${escapeHtml(name)}<div class="muted">${escapeHtml(uname)}</div>`;
       };
 
@@ -919,7 +914,6 @@ settingsBtn.addEventListener("click", ()=>{
 
       if (error) throw error;
 
-      // For contributor mode, RLS already restricts to own.
       const rows = data || [];
       const total = rows.reduce((a,v)=>a + Number(v.amount_paid||0), 0);
 
@@ -928,7 +922,7 @@ settingsBtn.addEventListener("click", ()=>{
         <div class="chip"><strong>Total amount:</strong> ${money(total)}</div>
       `;
 
-      myVouchersEl.innerHTML = voucherTable(rows, "contributor");
+      myVouchersEl.innerHTML = voucherTable(rows);
       hookVoucherActions(myVouchersEl, rows);
       return rows;
     }
@@ -940,7 +934,7 @@ settingsBtn.addEventListener("click", ()=>{
         .order("uploaded_at", { ascending: false })
         .limit(500);
 
-      if (statusFilter !== undefined && statusFilter !== null && statusFilter !== ""){
+      if (statusFilter !== ""){
         q = q.eq("status", statusFilter);
       }
       const { data, error } = await q;
@@ -949,7 +943,6 @@ settingsBtn.addEventListener("click", ()=>{
     }
 
     async function openVoucherFile(v){
-      // File path is like: "<user_id>/<uuid>.<ext>"
       const { data, error } = await sb.storage.from("vouchers").createSignedUrl(v.file_path, 60);
       if (error) throw error;
       window.open(data.signedUrl, "_blank", "noopener");
@@ -1001,7 +994,6 @@ td:first-child{width:220px; color:#444;}
     function downloadVoucherPdf(v){
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-
       doc.setFont("times", "normal");
       doc.setFontSize(16);
       doc.text(`Voucher Details (#${v.id})`, 14, 16);
@@ -1133,7 +1125,6 @@ th{background:#fafafa;}
         patch.chairman_approved_at = now;
       }
       if (newStatus === "rejected"){
-        // set actor timestamps depending on role
         if (profile.role === "finance_admin" || profile.role === "super_admin"){
           patch.finance_authenticated_by = profile.id;
           patch.finance_authenticated_at = now;
@@ -1164,18 +1155,9 @@ th{background:#fafafa;}
 
         btn.addEventListener("click", async ()=>{
           try{
-            if (act === "file"){
-              await openVoucherFile(v);
-              return;
-            }
-            if (act === "vhtml"){
-              downloadVoucherHtml(v);
-              return;
-            }
-            if (act === "vpdf"){
-              downloadVoucherPdf(v);
-              return;
-            }
+            if (act === "file"){ await openVoucherFile(v); return; }
+            if (act === "vhtml"){ downloadVoucherHtml(v); return; }
+            if (act === "vpdf"){ downloadVoucherPdf(v); return; }
 
             const comment = prompt("Optional comment/note:") || "";
 
@@ -1183,15 +1165,15 @@ th{background:#fafafa;}
               const updated = await updateVoucherStatus(v, "authenticated", comment);
               toast("Voucher authenticated.");
               await addAudit("voucher_authenticated", "voucher", updated.id, comment, {to_status:"authenticated"});
-} else if (act === "approve"){
+            } else if (act === "approve"){
               const updated = await updateVoucherStatus(v, "approved", comment);
               toast("Voucher approved.");
               await addAudit("voucher_approved", "voucher", updated.id, comment, {to_status:"approved"});
-} else if (act === "reject_fin" || act === "reject_ch"){
+            } else if (act === "reject_fin" || act === "reject_ch"){
               const updated = await updateVoucherStatus(v, "rejected", comment);
               toast("Voucher rejected.");
               await addAudit("voucher_rejected", "voucher", updated.id, comment, {to_status:"rejected"});
-}
+            }
 
             await refreshAll();
           }catch(e){
@@ -1202,8 +1184,9 @@ th{background:#fafafa;}
     }
 
     uploadBtn.addEventListener("click", async ()=>{
-      if (!ensureClient()) return;
       try{
+        if (!ensureClient()) return;
+
         const f = vFile.files && vFile.files[0];
         if (!f){ toast("Please choose a voucher file.", false); return; }
         if (!vDate.value){ toast("Please select date paid.", false); return; }
@@ -1215,7 +1198,6 @@ th{background:#fafafa;}
         const safeName = `${uuidv4()}.${ext}`;
         const path = `${userId}/${safeName}`;
 
-        // Upload to Supabase Storage bucket "vouchers"
         const { error: upErr } = await sb.storage.from("vouchers").upload(path, f, {
           cacheControl: "3600",
           upsert: false,
@@ -1240,7 +1222,8 @@ th{background:#fafafa;}
 
         toast("Voucher submitted.");
         await addAudit("voucher_submitted", "voucher", data.id, null, {amount_paid: payload.amount_paid, bank_paid: payload.bank_paid});
-vFile.value = "";
+
+        vFile.value = "";
         vAmount.value = "";
         vBank.value = "";
 
@@ -1250,18 +1233,17 @@ vFile.value = "";
       }
     });
 
-    // Contributor exports
     myHtmlBtn.addEventListener("click", async ()=>{
-      if (!ensureClient()) return;
       try{
+        if (!ensureClient()) return;
         const vouchers = await listMyVouchers();
         downloadSummaryHtml(profile, vouchers, (profile.username || profile.email || "me"));
       }catch(e){ toast(e.message || "Export failed.", false); }
     });
 
     myPdfBtn.addEventListener("click", async ()=>{
-      if (!ensureClient()) return;
       try{
+        if (!ensureClient()) return;
         const vouchers = await listMyVouchers();
         downloadSummaryPdf(profile, vouchers, (profile.username || profile.email || "me"));
       }catch(e){ toast(e.message || "Export failed.", false); }
@@ -1273,7 +1255,6 @@ vFile.value = "";
     // USERS SUMMARY + ROLE MANAGEMENT + AUDIT
     // =========================
     async function loadUsersSummary(){
-      // View depends on RLS; allowed for finance/chairman/super_admin (via underlying policies)
       const { data, error } = await sb.from("v_user_summary").select("*").limit(1000);
       if (error) throw error;
 
@@ -1308,17 +1289,14 @@ vFile.value = "";
         </table>
       `;
 
-      // Hook downloads
       usersSummaryEl.querySelectorAll("[data-udl]").forEach(btn=>{
         btn.addEventListener("click", async ()=>{
           const uid = btn.getAttribute("data-id");
           const kind = btn.getAttribute("data-udl");
           try{
-            // Pull contributor profile
             const { data: p, error: pe } = await sb.from("profiles").select("*").eq("id", uid).single();
             if (pe) throw pe;
 
-            // Pull vouchers
             const { data: vs, error: ve } = await sb.from("vouchers").select("*").eq("user_id", uid).order("uploaded_at", {ascending:false}).limit(2000);
             if (ve) throw ve;
 
@@ -1337,22 +1315,18 @@ vFile.value = "";
 
     async function loadAdminUsers(searchTerm){
       let q = sb.from("profiles").select("*").order("created_at", {ascending:false}).limit(1000);
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = data || [];
       if (searchTerm){
-        // simple search in client: pull and filter; for large org, create RPC with ILIKE
-        const { data, error } = await q;
-        if (error) throw error;
         const t = searchTerm.toLowerCase();
-        const filtered = (data||[]).filter(u =>
+        return renderAdminUsers(rows.filter(u =>
           (u.username||"").toLowerCase().includes(t) ||
           (u.email||"").toLowerCase().includes(t) ||
           (u.full_name||"").toLowerCase().includes(t)
-        );
-        renderAdminUsers(filtered);
-        return;
+        ));
       }
-      const { data, error } = await q;
-      if (error) throw error;
-      renderAdminUsers(data||[]);
+      renderAdminUsers(rows);
     }
 
     function renderAdminUsers(rows){
@@ -1384,11 +1358,7 @@ vFile.value = "";
                 </td>
                 <td><input data-edit="phone" data-id="${u.id}" value="${escapeHtml(u.phone||"")}" placeholder="-" /></td>
                 <td class="small">${dt(u.created_at)}</td>
-                <td>
-                  <div class="row">
-                    <button class="btn btn-primary" data-act="save_user" data-id="${u.id}">Save</button>
-                  </div>
-                </td>
+                <td><button class="btn btn-primary" data-act="save_user" data-id="${u.id}">Save</button></td>
               </tr>
             `).join("") : `<tr><td colspan="8" class="muted">No users found.</td></tr>`}
           </tbody>
@@ -1420,9 +1390,8 @@ vFile.value = "";
     }
 
     adminSearchBtn.addEventListener("click", async ()=>{
-      try{
-        await loadAdminUsers(adminSearch.value.trim());
-      }catch(e){ toast(e.message || "Search failed.", false); }
+      try{ await loadAdminUsers(adminSearch.value.trim()); }
+      catch(e){ toast(e.message || "Search failed.", false); }
     });
 
     async function loadAudit(){
@@ -1458,7 +1427,8 @@ vFile.value = "";
 
     const auditRefreshBtn = $("auditRefreshBtn");
     auditRefreshBtn.addEventListener("click", async ()=>{
-      try{ await loadAudit(); toast("Audit refreshed."); } catch(e){ toast(e.message || "Refresh failed.", false); }
+      try{ await loadAudit(); toast("Audit refreshed."); }
+      catch(e){ toast(e.message || "Refresh failed.", false); }
     });
   </script>
 
@@ -1478,28 +1448,25 @@ vFile.value = "";
           if (tab === "users") await loadUsersSummary();
           if (tab === "admin") await loadAdminUsers(adminSearch.value.trim());
           if (tab === "audit") await loadAudit();
-}catch(e){
+        }catch(e){
           toast(e.message || "Failed to load tab.", false);
         }
       }));
     }
 
     function setupFilters(){
-      // Finance
       $("financeFilters").querySelectorAll(".pill").forEach(p => p.addEventListener("click", async ()=>{
         $("financeFilters").querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
         p.classList.add("active");
         financeFilter = p.getAttribute("data-status");
         await refreshAll();
       }));
-      // Chairman
       $("chairFilters").querySelectorAll(".pill").forEach(p => p.addEventListener("click", async ()=>{
         $("chairFilters").querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
         p.classList.add("active");
         chairFilter = p.getAttribute("data-status");
         await refreshAll();
       }));
-      // Super
       $("superFilters").querySelectorAll(".pill").forEach(p => p.addEventListener("click", async ()=>{
         $("superFilters").querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
         p.classList.add("active");
@@ -1517,22 +1484,21 @@ vFile.value = "";
 
       if (profile.role === "finance_admin"){
         const rows = await listVouchersForStaff(financeFilter);
-        financeVouchersEl.innerHTML = voucherTable(rows, "finance");
+        financeVouchersEl.innerHTML = voucherTable(rows);
         hookVoucherActions(financeVouchersEl, rows);
       }
 
       if (profile.role === "chairman"){
         const rows = await listVouchersForStaff(chairFilter);
-        chairVouchersEl.innerHTML = voucherTable(rows, "chairman");
+        chairVouchersEl.innerHTML = voucherTable(rows);
         hookVoucherActions(chairVouchersEl, rows);
       }
 
       if (profile.role === "super_admin"){
         const rows = await listVouchersForStaff(superFilter);
-        superVouchersEl.innerHTML = voucherTable(rows, "super");
+        superVouchersEl.innerHTML = voucherTable(rows);
         hookVoucherActions(superVouchersEl, rows);
 
-        // Preload admin views
         await loadAdminUsers(adminSearch.value.trim());
         await loadAudit();
       }
@@ -1543,8 +1509,7 @@ vFile.value = "";
         if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
         realtimeChannel = sb
           .channel("va-realtime")
-          .on("postgres_changes", { event: "*", schema: "public", table: "vouchers" }, async (payload) => {
-            // Fast refresh to reflect concurrent updates
+          .on("postgres_changes", { event: "*", schema: "public", table: "vouchers" }, async () => {
             if (profile) await refreshAll();
           })
           .subscribe();
@@ -1557,17 +1522,16 @@ vFile.value = "";
     // BOOTSTRAP
     // =========================
     async function bootstrap(){
-      const ok = initSupabase();
+      setupTabs();
+      setupFilters();
+
+      const ok = await initSupabase();
       if (!ok){
-        try { cfgCard.style.display = "block"; } catch(_){ }
+        cfgCard.style.display = "block";
         setLoggedInUI(false);
         return;
       }
 
-      setupTabs();
-      setupFilters();
-
-      // Check existing session
       const { data: { session: s } } = await sb.auth.getSession();
       session = s;
 
@@ -1578,14 +1542,13 @@ vFile.value = "";
           showRolePanels();
           await refreshAll();
           setupRealtime();
-        }catch(e){
+        }catch(_){
           setLoggedInUI(false);
         }
       } else {
         setLoggedInUI(false);
       }
 
-      // auth state change
       sb.auth.onAuthStateChange(async (event, s2) => {
         session = s2;
         if (event === "SIGNED_IN" && s2?.user){
@@ -1595,7 +1558,7 @@ vFile.value = "";
             showRolePanels();
             await refreshAll();
             setupRealtime();
-          }catch(e){
+          }catch(_){
             toast("Signed in, but profile is missing. Ensure profiles row exists.", false);
           }
         }
