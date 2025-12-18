@@ -1,34 +1,30 @@
-# Voucher Approval App (Static HTML/CSS/JS + Supabase) — No Notifications
+# Voucher Approval App (Static HTML/CSS/JS + Supabase) — Fixed Login/Profile
 
-This is a client-only app:
-- HTML/CSS/JS runs on GitHub Pages (or any static host)
-- Supabase provides Auth + Database + Storage + Realtime (multi-user concurrency)
+## Why you saw: "Cannot coerce the result to a single JSON object"
+That error happens when the app tries to load your `profiles` row but it doesn't exist yet (common when Email Confirmation is ON).
+This build auto-creates the profile row on first successful login.
 
-## 1) Supabase setup
+## Supabase setup
 1. Create a Supabase project
 2. SQL Editor: run `supabase_schema.sql`
 3. Storage: create bucket `vouchers` (private)
-4. Realtime/Replication: enable realtime for table `vouchers`
+4. Enable realtime for table `vouchers` (Database → Replication)
 
-## 2) GitHub Pages / Auth Redirect URLs (Important)
+## GitHub Pages / Redirect URLs (Important)
 Supabase → Authentication → URL Configuration
 - Site URL: https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO/
 - Additional Redirect URLs: add the same URL
-(Optional local testing)
-- http://127.0.0.1:8080/
 
-## 3) Configure the site
-Open the site and click **Settings** (top-right). Enter:
+For your case:
+- https://mikeade3000.github.io/Adelani-Vouchers/
+
+## Configure the app
+Open your website → click **Settings** → enter:
 - Supabase URL
 - Supabase anon public key
-Then Save and refresh.
+Save → page refreshes.
 
-## 4) Create first Super Admin (one-time)
-Register a user normally in the app.
-Then in Supabase Table Editor → `profiles`, set that user's `role` = `super_admin`.
-After that, Super Admin can set Finance/Chairman roles from the UI.
-
-## 5) Run locally (Windows)
-From the folder containing `index.html`:
-py -m http.server 8080
-Open: http://127.0.0.1:8080
+## Create first Super Admin (one-time)
+Register & confirm, then login.
+In Supabase Table Editor → `profiles`, set your role to `super_admin`.
+Then you can assign Finance/Chairman roles inside the app.

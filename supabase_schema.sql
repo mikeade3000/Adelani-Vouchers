@@ -47,7 +47,6 @@ create table if not exists public.audit_logs (
 );
 
 create index if not exists ix_audit_created on public.audit_logs(created_at desc);
-create index if not exists ix_audit_action_created on public.audit_logs(action, created_at desc);
 
 create or replace function public.current_role()
 returns text

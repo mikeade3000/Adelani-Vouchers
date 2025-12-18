@@ -766,13 +766,67 @@
       if (error) throw error;
     }
 
-    async function loadProfile(){
-      const { data: { user } } = await sb.auth.getUser();
-      if (!user) return null;
-      const { data, error } = await sb.from("profiles").select("*").eq("id", user.id).single();
-      if (error) throw error;
-      return data;
+    function safeUsername(desired, email){
+  const base = (desired || (email ? email.split("@")[0] : "user"))
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .slice(0, 24) || "user";
+  return base;
+}
+
+async function createProfileFromUser(user){
+  const meta = user.user_metadata || {};
+  const fullName = (meta.full_name || meta.fullName || "").toString().trim() || (user.email || "User");
+  const desiredU = (meta.username || meta.user_name || meta.userName || "").toString().trim();
+  const baseU = safeUsername(desiredU, user.email);
+
+  for (let i=0; i<4; i++){
+    const uname = i === 0 ? baseU : `${baseU}_${Math.floor(1000 + Math.random()*9000)}`;
+    const payload = {
+      id: user.id,
+      email: user.email,
+      username: uname,
+      full_name: fullName,
+      role: "contributor",
+      phone: meta.phone || null
+    };
+
+    // Prefer insert; if profile already exists, break out.
+    const { error } = await sb.from("profiles").insert([payload]);
+    if (!error) return true;
+
+    const msg = (error.message || "").toLowerCase();
+    const det = (error.details || "").toLowerCase();
+
+    // If row already exists, stop.
+    if (msg.includes("duplicate") && (msg.includes("profiles_pkey") || det.includes("profiles_pkey"))) return true;
+
+    // Username conflict -> retry with suffix
+    if (msg.includes("duplicate") || msg.includes("unique") || det.includes("duplicate") || det.includes("unique")) {
+      continue;
     }
+
+    // Otherwise, throw
+    throw error;
+  }
+  throw new Error("Could not create profile row (username conflict). Please register with a different username.");
+}
+
+async function loadProfile(){
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await sb.from("profiles").select("*").eq("id", user.id).maybeSingle();
+  if (error) throw error;
+
+  if (!data){
+    await createProfileFromUser(user);
+    const { data: p2, error: e2 } = await sb.from("profiles").select("*").eq("id", user.id).single();
+    if (e2) throw e2;
+    return p2;
+  }
+  return data;
+}
 
     loginBtn.addEventListener("click", async ()=>{
       try{
@@ -813,7 +867,7 @@
           return;
         }
 
-        const { data, error } = await sb.auth.signUp({ email, password });
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name, username, phone: (regPhone.value.trim() || null) } } });
         if (error) throw error;
 
         if (data.user){
