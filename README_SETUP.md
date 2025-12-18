@@ -31,3 +31,9 @@ Then you can assign Finance/Chairman roles inside the app.
 
 ## Supabase configuration
 This build has the Supabase URL + anon key embedded in `index.html`. Users will not see any configuration panel.
+
+## Bank reconciliation exports (Finance/Chairman)
+Finance and Chairman panels include CSV export and ZIP download (voucher files + manifest.csv), for all users or per user.
+
+## Live updates
+This build uses Supabase Realtime plus a 25s auto-refresh fallback; manual refresh should not be necessary.

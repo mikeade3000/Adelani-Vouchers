@@ -349,12 +349,46 @@
             </div>
 
             <div class="card">
-              <h2>Downloads</h2>
-              <p class="muted">Download each contributor’s payment summary (HTML/PDF) directly from the vouchers list.</p>
-              <div class="callout">
-                Tip: Open a voucher, verify details, then click <strong>Authenticate</strong>.
-              </div>
-            </div>
+  <h2>Downloads</h2>
+  <p class="muted">Finance downloads for bank reconciliation and recordkeeping.</p>
+
+  <div class="callout">
+    Tip: Open a voucher, verify details, then click <strong>Authenticate</strong>. Lists update automatically.
+  </div>
+
+  <div class="divider"></div>
+
+  <h3 style="margin-top:0;">Bank Reconciliation Exports</h3>
+  <div class="form">
+    <label>Date range (optional)</label>
+    <div class="row">
+      <input id="finFrom" type="date" />
+      <input id="finTo" type="date" />
+    </div>
+
+    <label>All users (current filter)</label>
+    <div class="row">
+      <button id="finCsvAllBtn" class="btn btn-ghost">Export CSV</button>
+      <button id="finZipAllBtn" class="btn btn-ghost">Download ZIP (files + CSV)</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <label>Per user</label>
+    <select id="finUserSel">
+      <option value="">Loading users…</option>
+    </select>
+    <div class="row">
+      <button id="finCsvUserBtn" class="btn btn-ghost">CSV for user</button>
+      <button id="finZipUserBtn" class="btn btn-ghost">ZIP for user</button>
+    </div>
+
+    <div id="finBulkProg" class="callout" style="display:none;">
+      <div class="muted" id="finBulkLabel">Preparing…</div>
+      <progress id="finBulkBar" value="0" max="100" style="width:100%; height: 14px;"></progress>
+    </div>
+  </div>
+</div>
           </div>
         </div>
 
@@ -373,12 +407,46 @@
             </div>
 
             <div class="card">
-              <h2>Downloads</h2>
-              <p class="muted">Download each contributor’s payment summary (HTML/PDF) directly from the vouchers list.</p>
-              <div class="callout">
-                Approvals are visible instantly to Contributors and Finance.
-              </div>
-            </div>
+  <h2>Downloads</h2>
+  <p class="muted">Chairman downloads for approvals, audit, and bank reconciliation.</p>
+
+  <div class="callout">
+    Tip: Approve only vouchers that have been authenticated by Finance. Lists update automatically.
+  </div>
+
+  <div class="divider"></div>
+
+  <h3 style="margin-top:0;">Bank Reconciliation Exports</h3>
+  <div class="form">
+    <label>Date range (optional)</label>
+    <div class="row">
+      <input id="chFrom" type="date" />
+      <input id="chTo" type="date" />
+    </div>
+
+    <label>All users (current filter)</label>
+    <div class="row">
+      <button id="chCsvAllBtn" class="btn btn-ghost">Export CSV</button>
+      <button id="chZipAllBtn" class="btn btn-ghost">Download ZIP (files + CSV)</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <label>Per user</label>
+    <select id="chUserSel">
+      <option value="">Loading users…</option>
+    </select>
+    <div class="row">
+      <button id="chCsvUserBtn" class="btn btn-ghost">CSV for user</button>
+      <button id="chZipUserBtn" class="btn btn-ghost">ZIP for user</button>
+    </div>
+
+    <div id="chBulkProg" class="callout" style="display:none;">
+      <div class="muted" id="chBulkLabel">Preparing…</div>
+      <progress id="chBulkBar" value="0" max="100" style="width:100%; height: 14px;"></progress>
+    </div>
+  </div>
+</div>
           </div>
         </div>
 
@@ -790,8 +858,16 @@ async function loadProfile(){
         setLoggedInUI(true);
         showRolePanels();
         toast("Logged in.");
-        await refreshAll();
+        await refreshAllSafe();
         setupRealtime();
+            startAutoRefresh();
+            wireBulkDownloadButtons();
+            if (profile?.role === "finance_admin" || profile?.role === "super_admin") { await loadContributorsInto($("finUserSel")); }
+            if (profile?.role === "chairman" || profile?.role === "super_admin") { await loadContributorsInto($("chUserSel")); }
+          startAutoRefresh();
+          wireBulkDownloadButtons();
+          if (profile?.role === "finance_admin" || profile?.role === "super_admin") { await loadContributorsInto($("finUserSel")); }
+          if (profile?.role === "chairman" || profile?.role === "super_admin") { await loadContributorsInto($("chUserSel")); }
       }catch(e){
         toast(e.message || "Login failed.", false);
       }
@@ -1096,7 +1172,309 @@ th{background:#fafafa;}
       doc.save(`${filenamePrefix}_payment_summary.pdf`);
     }
 
-    async function addAudit(action, target_type, target_id, message, metadata={}){
+    
+// ========================
+// BULK EXPORTS (Finance/Chairman)
+// ========================
+async function ensureJSZipLoaded(){
+  if (window.JSZip) return true;
+  const urls = [
+    "https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
+    "https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"
+  ];
+  for (const u of urls){
+    try{
+      await loadScript(u);
+      if (window.JSZip) return true;
+    }catch(_e){}
+  }
+  return !!window.JSZip;
+}
+
+function sanitizeFilename(name){
+  return (name || "file")
+    .toString()
+    .replace(/[/\\?%*:|"<>]/g, "_")
+    .replace(/\s+/g, "_")
+    .slice(0, 180);
+}
+
+function csvEscape(v){
+  const s = (v ?? "").toString();
+  if (/[",\n]/.test(s)){
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function buildReconciliationCsv(rows){
+  const header = [
+    "voucher_id","user_id","username","full_name","email","phone",
+    "date_paid","amount_paid","bank_paid","status","uploaded_at",
+    "file_name","file_path",
+    "finance_authenticated_at","finance_authenticated_by",
+    "chairman_approved_at","chairman_approved_by",
+    "last_comment"
+  ];
+  const lines = [header.join(",")];
+  for (const v of (rows || [])){
+    const p = v.profiles || {};
+    const row = [
+      v.id, v.user_id,
+      p.username || "", p.full_name || "", p.email || "", p.phone || "",
+      v.date_paid || "", v.amount_paid ?? "", v.bank_paid || "", v.status || "",
+      v.uploaded_at || "", v.file_name || "", v.file_path || "",
+      v.finance_authenticated_at || "", v.finance_authenticated_by || "",
+      v.chairman_approved_at || "", v.chairman_approved_by || "",
+      v.last_comment || ""
+    ].map(csvEscape);
+    lines.push(row.join(","));
+  }
+  return lines.join("\n");
+}
+
+function downloadCsv(filename, csvText){
+  downloadBlob(filename, new Blob([csvText], { type: "text/csv;charset=utf-8" }));
+}
+
+function getBulkUI(prefix){
+  return {
+    prog: $(prefix + "BulkProg"),
+    label: $(prefix + "BulkLabel"),
+    bar: $(prefix + "BulkBar")
+  };
+}
+
+function setBulkProgress(prefix, show, label, pct){
+  const ui = getBulkUI(prefix);
+  if (!ui.prog || !ui.label || !ui.bar) return;
+  ui.prog.style.display = show ? "block" : "none";
+  if (label != null) ui.label.textContent = label;
+  if (pct != null) ui.bar.value = Math.max(0, Math.min(100, pct));
+}
+
+async function queryVouchersForExport({ status="", userId="", from="", to="" } = {}){
+  let q = sb
+    .from("vouchers")
+    .select("*, profiles:profiles!vouchers_user_id_fkey(full_name, username, email, phone)")
+    .order("uploaded_at", { ascending: false })
+    .limit(5000);
+
+  if (status !== "") q = q.eq("status", status);
+  if (userId) q = q.eq("user_id", userId);
+  if (from) q = q.gte("date_paid", from);
+  if (to) q = q.lte("date_paid", to);
+
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+async function loadContributorsInto(selectEl){
+  if (!selectEl) return;
+  selectEl.innerHTML = '<option value="">Select a user…</option>';
+  try{
+    const { data, error } = await sb
+      .from("profiles")
+      .select("id, full_name, username, email")
+      .eq("role", "contributor")
+      .order("full_name", { ascending: true })
+      .limit(2000);
+
+    if (error) throw error;
+
+    for (const u of (data || [])){
+      const label = (u.full_name || u.username || u.email || u.id) + (u.username ? ` (@${u.username})` : "");
+      const opt = document.createElement("option");
+      opt.value = u.id;
+      opt.textContent = label;
+      selectEl.appendChild(opt);
+    }
+  }catch(e){
+    selectEl.innerHTML = '<option value="">(User list unavailable)</option>';
+  }
+}
+
+async function downloadZipForRows(rows, zipBaseName, prefix){
+  if (!rows || rows.length === 0){
+    toast("No vouchers found for the selected filter/range.", false);
+    return;
+  }
+
+  const ok = await ensureJSZipLoaded();
+  if (!ok){
+    toast("ZIP library failed to load. Please check your internet connection.", false);
+    return;
+  }
+
+  setBulkProgress(prefix, true, `Preparing ${rows.length} file(s)…`, 0);
+
+  const zip = new JSZip();
+  zip.file("manifest.csv", buildReconciliationCsv(rows));
+
+  let done = 0;
+
+  for (const v of rows){
+    try{
+      const p = v.profiles || {};
+      const folderName = sanitizeFilename(p.username || p.full_name || v.user_id || "user");
+      const folder = zip.folder(folderName);
+
+      const { data, error } = await sb.storage.from("vouchers").createSignedUrl(v.file_path, 60 * 10);
+      if (error) throw error;
+
+      const resp = await fetch(data.signedUrl, { cache: "no-store" });
+      if (!resp.ok) throw new Error("File download failed for voucher " + v.id);
+
+      const blob = await resp.blob();
+      const base = `${v.date_paid || "date"}_${v.amount_paid ?? "amount"}_${(v.bank_paid || "bank")}_${(v.status || "status")}_${(v.file_name || "voucher")}`;
+      folder.file(sanitizeFilename(base), blob);
+    }catch(_e){
+      // Continue even if one file fails (manifest still downloads)
+    }finally{
+      done += 1;
+      const pct = Math.round((done / rows.length) * 100);
+      setBulkProgress(prefix, true, `Downloading files… (${done}/${rows.length})`, pct);
+    }
+  }
+
+  setBulkProgress(prefix, true, "Finalizing ZIP…", 100);
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  downloadBlob(`${sanitizeFilename(zipBaseName)}.zip`, zipBlob);
+
+  setTimeout(()=> setBulkProgress(prefix, false, "", 0), 1200);
+  toast("Download prepared.");
+}
+
+let bulkWired = false;
+
+    function wireBulkDownloadButtons(){
+      if (bulkWired) return;
+      bulkWired = true;
+  const finCsvAllBtn = $("finCsvAllBtn");
+  const finZipAllBtn = $("finZipAllBtn");
+  const finCsvUserBtn = $("finCsvUserBtn");
+  const finZipUserBtn = $("finZipUserBtn");
+  const finUserSel = $("finUserSel");
+  const finFrom = $("finFrom");
+  const finTo = $("finTo");
+
+  const chCsvAllBtn = $("chCsvAllBtn");
+  const chZipAllBtn = $("chZipAllBtn");
+  const chCsvUserBtn = $("chCsvUserBtn");
+  const chZipUserBtn = $("chZipUserBtn");
+  const chUserSel = $("chUserSel");
+  const chFrom = $("chFrom");
+  const chTo = $("chTo");
+
+  if (finCsvAllBtn){
+    finCsvAllBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "finance_admin" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: financeFilter, from: finFrom?.value || "", to: finTo?.value || "" });
+        downloadCsv(`finance_reconciliation_${financeFilter || "all"}.csv`, buildReconciliationCsv(rows));
+        toast("CSV exported.");
+      }catch(e){ toast(e.message || "Export failed.", false); }
+    });
+  }
+
+  if (finZipAllBtn){
+    finZipAllBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "finance_admin" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: financeFilter, from: finFrom?.value || "", to: finTo?.value || "" });
+        await downloadZipForRows(rows, `finance_vouchers_${financeFilter || "all"}`, "fin");
+      }catch(e){ toast(e.message || "Download failed.", false); }
+    });
+  }
+
+  if (finCsvUserBtn){
+    finCsvUserBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "finance_admin" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+        const userId = finUserSel?.value || "";
+        if (!userId){ toast("Select a user first.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: financeFilter, userId, from: finFrom?.value || "", to: finTo?.value || "" });
+        downloadCsv(`finance_reconciliation_user_${userId}_${financeFilter || "all"}.csv`, buildReconciliationCsv(rows));
+        toast("CSV exported.");
+      }catch(e){ toast(e.message || "Export failed.", false); }
+    });
+  }
+
+  if (finZipUserBtn){
+    finZipUserBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "finance_admin" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+        const userId = finUserSel?.value || "";
+        if (!userId){ toast("Select a user first.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: financeFilter, userId, from: finFrom?.value || "", to: finTo?.value || "" });
+        await downloadZipForRows(rows, `finance_vouchers_user_${userId}_${financeFilter || "all"}`, "fin");
+      }catch(e){ toast(e.message || "Download failed.", false); }
+    });
+  }
+
+  if (chCsvAllBtn){
+    chCsvAllBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "chairman" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: chairFilter, from: chFrom?.value || "", to: chTo?.value || "" });
+        downloadCsv(`chairman_reconciliation_${chairFilter || "all"}.csv`, buildReconciliationCsv(rows));
+        toast("CSV exported.");
+      }catch(e){ toast(e.message || "Export failed.", false); }
+    });
+  }
+
+  if (chZipAllBtn){
+    chZipAllBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "chairman" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: chairFilter, from: chFrom?.value || "", to: chTo?.value || "" });
+        await downloadZipForRows(rows, `chairman_vouchers_${chairFilter || "all"}`, "ch");
+      }catch(e){ toast(e.message || "Download failed.", false); }
+    });
+  }
+
+  if (chCsvUserBtn){
+    chCsvUserBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "chairman" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+        const userId = chUserSel?.value || "";
+        if (!userId){ toast("Select a user first.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: chairFilter, userId, from: chFrom?.value || "", to: chTo?.value || "" });
+        downloadCsv(`chairman_reconciliation_user_${userId}_${chairFilter || "all"}.csv`, buildReconciliationCsv(rows));
+        toast("CSV exported.");
+      }catch(e){ toast(e.message || "Export failed.", false); }
+    });
+  }
+
+  if (chZipUserBtn){
+    chZipUserBtn.addEventListener("click", async ()=>{
+      try{
+        if (!ensureClient()) return;
+        if (!(profile?.role === "chairman" || profile?.role === "super_admin")) { toast("Not allowed.", false); return; }
+        const userId = chUserSel?.value || "";
+        if (!userId){ toast("Select a user first.", false); return; }
+
+        const rows = await queryVouchersForExport({ status: chairFilter, userId, from: chFrom?.value || "", to: chTo?.value || "" });
+        await downloadZipForRows(rows, `chairman_vouchers_user_${userId}_${chairFilter || "all"}`, "ch");
+      }catch(e){ toast(e.message || "Download failed.", false); }
+    });
+  }
+}async function addAudit(action, target_type, target_id, message, metadata={}){
       try{
         const actor = profile?.id;
         if (!actor) return;
@@ -1176,7 +1554,7 @@ th{background:#fafafa;}
               await addAudit("voucher_rejected", "voucher", updated.id, comment, {to_status:"rejected"});
             }
 
-            await refreshAll();
+            await refreshAllSafe();
           }catch(e){
             toast(e.message || "Action failed.", false);
           }
@@ -1228,7 +1606,7 @@ th{background:#fafafa;}
         vAmount.value = "";
         vBank.value = "";
 
-        await refreshAll();
+        await refreshAllSafe();
       }catch(e){
         toast(e.message || "Upload failed.", false);
       }
@@ -1460,21 +1838,72 @@ th{background:#fafafa;}
         $("financeFilters").querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
         p.classList.add("active");
         financeFilter = p.getAttribute("data-status");
-        await refreshAll();
+        await refreshAllSafe();
       }));
       $("chairFilters").querySelectorAll(".pill").forEach(p => p.addEventListener("click", async ()=>{
         $("chairFilters").querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
         p.classList.add("active");
         chairFilter = p.getAttribute("data-status");
-        await refreshAll();
+        await refreshAllSafe();
       }));
       $("superFilters").querySelectorAll(".pill").forEach(p => p.addEventListener("click", async ()=>{
         $("superFilters").querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
         p.classList.add("active");
         superFilter = p.getAttribute("data-status");
-        await refreshAll();
+        await refreshAllSafe();
       }));
     }
+
+// ========================
+// LIVE UPDATES (no manual refresh)
+// ========================
+let refreshInFlight = false;
+let refreshQueued = false;
+let refreshDebounceTimer = null;
+
+let autoRefreshTimer = null;
+let focusHooksAttached = false;
+
+async function refreshAllSafe(){
+  if (!profile) return;
+  if (refreshInFlight){
+    refreshQueued = true;
+    return;
+  }
+  refreshInFlight = true;
+  try{
+    await refreshAll();
+  }finally{
+    refreshInFlight = false;
+    if (refreshQueued){
+      refreshQueued = false;
+      refreshAllSafe();
+    }
+  }
+}
+
+function scheduleRefresh(){
+  clearTimeout(refreshDebounceTimer);
+  refreshDebounceTimer = setTimeout(()=>{ refreshAllSafe(); }, 650);
+}
+
+function startAutoRefresh(){
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  // Poll is a fallback in case Realtime is blocked by network/CDN.
+  autoRefreshTimer = setInterval(()=>{ refreshAllSafe(); }, 25000);
+
+  if (!focusHooksAttached){
+    focusHooksAttached = true;
+    document.addEventListener("visibilitychange", ()=> {
+      if (!document.hidden) refreshAllSafe();
+    });
+    window.addEventListener("focus", ()=> refreshAllSafe());
+  }
+}
+
+function stopAutoRefresh(){
+  if (autoRefreshTimer){ clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+}
 
     async function refreshAll(){
       if (!profile) return;
@@ -1510,9 +1939,7 @@ th{background:#fafafa;}
         if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
         realtimeChannel = sb
           .channel("va-realtime")
-          .on("postgres_changes", { event: "*", schema: "public", table: "vouchers" }, async () => {
-            if (profile) await refreshAll();
-          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "vouchers" }, async () => { if (profile) scheduleRefresh(); })
           .subscribe();
       }catch(_){}
     }
@@ -1525,6 +1952,7 @@ th{background:#fafafa;}
     async function bootstrap(){
       setupTabs();
       setupFilters();
+      wireBulkDownloadButtons();
 
       const ok = await initSupabase();
       if (!ok){
@@ -1540,8 +1968,12 @@ th{background:#fafafa;}
           profile = await loadProfile();
           setLoggedInUI(true);
           showRolePanels();
-          await refreshAll();
+          await refreshAllSafe();
           setupRealtime();
+          startAutoRefresh();
+          wireBulkDownloadButtons();
+          if (profile?.role === "finance_admin" || profile?.role === "super_admin") { await loadContributorsInto($("finUserSel")); }
+          if (profile?.role === "chairman" || profile?.role === "super_admin") { await loadContributorsInto($("chUserSel")); }
         }catch(_){
           setLoggedInUI(false);
         }
@@ -1556,13 +1988,18 @@ th{background:#fafafa;}
             profile = await loadProfile();
             setLoggedInUI(true);
             showRolePanels();
-            await refreshAll();
+            await refreshAllSafe();
             setupRealtime();
+          startAutoRefresh();
+          wireBulkDownloadButtons();
+          if (profile?.role === "finance_admin" || profile?.role === "super_admin") { await loadContributorsInto($("finUserSel")); }
+          if (profile?.role === "chairman" || profile?.role === "super_admin") { await loadContributorsInto($("chUserSel")); }
           }catch(_){
             toast("Signed in, but profile is missing. Ensure profiles row exists.", false);
           }
         }
         if (event === "SIGNED_OUT"){
+          stopAutoRefresh();
           profile = null;
           setLoggedInUI(false);
           if (realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel = null; }
