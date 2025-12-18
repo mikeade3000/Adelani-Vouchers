@@ -479,54 +479,128 @@
   <div id="toast" class="toast"></div>
 
   <script>
-  // =========================
-  // SUPABASE (auto-configured)
-  // =========================
-  const cfg = {
-    url: "https://ijfwtwzhqlkmvtcdcjll.supabase.co",
-    anon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZnd0d3pocWxrbXZ0Y2RjamxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NzQ1MjAsImV4cCI6MjA4MTU1MDUyMH0.X0I4VuP7Hae-xo1PPEGnXwzNyaiYlusPb21Jb5Q-g2o"
-  };
+    // =========================
+    // CONFIG
+    // =========================
+    const cfg = {
+      url: "https://ijfwtwzhqlkmvtcdcjll.supabase.co",
+      anon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZnd0d3pocWxrbXZ0Y2RjamxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NzQ1MjAsImV4cCI6MjA4MTU1MDUyMH0.X0I4VuP7Hae-xo1PPEGnXwzNyaiYlusPb21Jb5Q-g2o"
+    };
+  </script>
 
-  let sb = null;
+  <script>
+    // =========================
+    // UTIL
+    // =========================
+    const $ = (id) => document.getElementById(id);
+    const escapeHtml = (s) => (s ?? "").toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const toastEl = $("toast");
 
-  async function ensureSupabaseLoaded(){
-    if (window.supabase && window.supabase.createClient) return true;
-
-    // Try loading from CDNs (GitHub Pages friendly)
-    const fallbacks = [
-      "https://unpkg.com/@supabase/supabase-js@2",
-      "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-    ];
-
-    for (const u of fallbacks){
-      try {
-        await loadScript(u);
-        if (window.supabase && window.supabase.createClient) return true;
-      } catch (_e) {}
+    function toast(msg, ok=true){
+      toastEl.style.display = "block";
+      toastEl.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">${ok ? "OK" : "Notice"}</div><div>${escapeHtml(msg)}</div>`;
+      clearTimeout(window.__toastT);
+      window.__toastT = setTimeout(()=>{toastEl.style.display="none";}, 5200);
     }
-    return false;
-  }
 
-  async function initSupabase(){
-    const ok = await ensureSupabaseLoaded();
-    if (!ok){
-      toast("Supabase library did not load. Please check your internet connection (CDN access).", false);
+    function money(x){
+      const n = Number(x);
+      if (!Number.isFinite(n)) return (x ?? "");
+      return n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+    }
+
+    function dt(x){
+      if (!x) return "-";
+      try { return new Date(x).toLocaleString(); } catch { return x; }
+    }
+
+    function badge(status){
+      const cls = status || "";
+      return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
+    }
+
+    function downloadBlob(filename, blob){
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
+    }
+
+    function uuidv4(){
+      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+      );
+    }
+
+    function loadScript(src){
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve(true);
+        s.onerror = () => reject(new Error("Failed to load: " + src));
+        document.head.appendChild(s);
+      });
+    }
+  </script>
+
+  <script>
+    // =========================
+    // SUPABASE INIT
+    // =========================
+    let sb = null;
+
+    
+// =========================
+// SUPABASE INIT (auto-configured)
+// =========================
+
+    async function ensureSupabaseLoaded(){
+      if (window.supabase && window.supabase.createClient) return true;
+
+      // Fallback CDNs
+      const fallbacks = [
+        "https://unpkg.com/@supabase/supabase-js@2",
+        "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+      ];
+      for (const u of fallbacks){
+        try{
+          await loadScript(u);
+          if (window.supabase && window.supabase.createClient) return true;
+        }catch(_){}
+      }
       return false;
     }
-    sb = window.supabase.createClient(cfg.url, cfg.anon, {
-      auth: { persistSession: true, autoRefreshToken: true }
-    });
-    return true;
-  }
 
-  function ensureClient(){
-    if (!sb || !sb.auth){
-      toast("System error: Supabase client is not initialized.", false);
-      return false;
+    async function initSupabase(){
+      if (!cfg.url || !cfg.anon) return false;
+
+      const ok = await ensureSupabaseLoaded();
+      if (!ok){
+        toast("Supabase library did not load. Check internet access to CDN (jsdelivr/unpkg) or try another network.", false);
+        return false;
+      }
+
+      sb = window.supabase.createClient(cfg.url, cfg.anon, {
+        auth: { persistSession: true, autoRefreshToken: true }
+      });
+      return true;
     }
-    return true;
-  }
-</script>
+
+    function ensureClient(){
+      if (!sb || !sb.auth){
+        toast("Supabase is not configured. Click Settings and enter your Supabase URL + anon key, then Save and refresh.", false);
+        return false;
+      }
+      return true;
+    }
+
+    // Auto-collapse config if values exist; Settings can reopen anytime.
+    if (cfg.url && cfg.anon){
+    }
+  </script>
 
   <script>
     // =========================
@@ -578,7 +652,7 @@
       superAdminPanel.style.display = "none";
       adminTabBtn.style.display = "none";
       auditTabBtn.style.display = "none";
-      try { usersTabBtn.style.display = "none"; } catch(_e) {}
+      try{ usersTabBtn.style.display = "none"; }catch(_e){}
 
       if (!profile) return;
 
@@ -595,7 +669,7 @@
         superAdminPanel.style.display = "block";
         adminTabBtn.style.display = "inline-block";
         auditTabBtn.style.display = "inline-block";
-        try { usersTabBtn.style.display = "inline-block"; } catch(_e) {}
+        try{ usersTabBtn.style.display = "inline-block"; }catch(_e){}
       }
     }
   </script>
@@ -1454,7 +1528,6 @@ th{background:#fafafa;}
 
       const ok = await initSupabase();
       if (!ok){
-        cfgCard.style.display = "block";
         setLoggedInUI(false);
         return;
       }

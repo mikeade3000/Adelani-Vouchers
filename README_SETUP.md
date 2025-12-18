@@ -30,4 +30,4 @@ In Supabase Table Editor → `profiles`, set your role to `super_admin`.
 Then you can assign Finance/Chairman roles inside the app.
 
 ## Supabase configuration
-This build has the Supabase URL + anon key embedded, so users will not see any configuration panel.
+This build has the Supabase URL + anon key embedded in `index.html`. Users will not see any configuration panel.
