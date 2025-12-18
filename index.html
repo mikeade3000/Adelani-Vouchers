@@ -711,7 +711,7 @@
       if (!profile) return;
 
       who.textContent = `${profile.full_name} (${profile.username || profile.email || "-"}) • ${profile.role}`;
-      roleBanner.innerHTML = `<strong>Role:</strong> ${escapeHtml(profile.role)} &nbsp; <span class="muted">| Concurrent multi-user via Supabase Realtime.</span>`;
+      roleBanner.innerHTML = `<strong>Role:</strong> ${escapeHtml(profile.role)} &nbsp; <span class="muted">| Multi-User Realtime.</span>`;
 
       if (profile.role === "contributor"){
         contributorPanel.style.display = "block";
