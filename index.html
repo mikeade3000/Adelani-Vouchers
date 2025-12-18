@@ -410,7 +410,7 @@
           <div class="grid2">
             <div class="card">
               <h2>All Vouchers</h2>
-              <p class="muted">Super Admin visibility across all vouchers and statuses.</p>
+              <p class="muted">Visibility across all vouchers and statuses.</p>
               <div class="filters" id="superFilters">
                 <button class="pill active" data-status="">All</button>
                 <button class="pill" data-status="submitted">Submitted</button>
@@ -436,7 +436,7 @@
       <div id="tab-users" class="tabpanel" style="display:none;">
         <div class="card">
           <h2>Users Summary</h2>
-          <p class="muted">Totals and counts per contributor. Finance/Chairman/Super Admin can download each contributor’s report.</p>
+          <p class="muted">Totals and counts per contributor. Finance/Chairman can download each contributor’s report.</p>
           <div id="usersSummary" class="tablewrap"></div>
         </div>
       </div>
@@ -445,9 +445,9 @@
         <div class="grid2">
           <div class="card">
             <h2>Role Management</h2>
-            <p class="muted">Super Admin only. Promote users to Finance/Chairman/Super Admin (accounts self-register first).</p>
+            <p class="muted">Finance/Chairman (accounts self-register first).</p>
             <div class="callout">
-              For client-only security, user creation happens via normal registration; then Super Admin sets role here.
+              For client-only security, user creation happens via normal registration.
             </div>
             <div class="divider"></div>
             <div class="form">
@@ -470,7 +470,7 @@
           <div class="row" style="justify-content: space-between; align-items:center;">
             <div>
               <h2 style="margin:0;">Audit Logs</h2>
-              <div class="muted">Super Admin only. Latest actions across the system.</div>
+              <div class="muted">Actions across the system.</div>
             </div>
             <div class="row">
               <button id="auditRefreshBtn" class="btn btn-ghost">Refresh</button>
@@ -488,7 +488,6 @@
             <li><strong>Contributor:</strong> Register → Login → Upload voucher + date/amount/bank → Track status and download your summary (HTML/PDF).</li>
             <li><strong>Finance Administrator:</strong> View submitted vouchers → Verify voucher file → Authenticate or Reject → Download reports.</li>
             <li><strong>Chairman:</strong> View authenticated vouchers → Approve or Reject → Download reports.</li>
-            <li><strong>Super Admin:</strong> Promote users to Finance/Chairman, view audit logs, see all vouchers.</li>
             <li><strong>Concurrency:</strong> Realtime updates refresh lists when other users act.</li>
           </ul>
           <div class="callout">
