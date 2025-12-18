@@ -244,36 +244,12 @@
     </div>
     <div class="userbox">
       <div id="who" class="who muted"></div>
-      <button id="settingsBtn" class="btn btn-ghost">Settings</button>
-      <button id="logoutBtn" class="btn btn-ghost" style="display:none;">Logout</button>
+<button id="logoutBtn" class="btn btn-ghost" style="display:none;">Logout</button>
     </div>
   </header>
 
   <main class="container">
-    <section class="card" id="configCard">
-      <h2>Supabase Configuration</h2>
-      <p class="muted">This is a static app. It needs Supabase for login, database, and file uploads.</p>
-      <div class="form" style="max-width:780px">
-        <label for="cfgUrl">Supabase URL</label>
-        <input id="cfgUrl" placeholder="https://xxxx.supabase.co" />
-        <label for="cfgAnon">Supabase anon public key</label>
-        <textarea id="cfgAnon" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." ></textarea>
-
-        <div class="row">
-          <button id="cfgSaveBtn" class="btn btn-primary">Save configuration</button>
-          <button id="cfgClearBtn" class="btn btn-ghost">Clear</button>
-        </div>
-
-        <div class="callout">
-          After you save, refresh the page. You can reopen this panel any time using <strong>Settings</strong>.
-          <div class="small muted" style="margin-top:6px">
-            Security note: anon key is safe to embed in a public site when RLS policies are configured correctly.
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="authView" class="grid2" style="margin-top:18px;">
+<section id="authView" class="grid2" style="margin-top:18px;">
       <div class="card">
         <h2>Login</h2>
         <p class="muted">Login with email and password.</p>
@@ -305,7 +281,7 @@
           <input id="regPhone" placeholder="+2567xxxxxxx" />
           <button id="regBtn" class="btn btn-secondary">Create account</button>
           <div class="hint muted">
-            Chairman.
+            Super Admin is created by promoting a user’s role to <code>super_admin</code> in the Supabase profiles table (one-time setup).
           </div>
         </div>
       </div>
@@ -314,7 +290,7 @@
     <section id="dashView" style="display:none; margin-top:18px;">
       <div class="tabs">
         <button class="tab active" data-tab="dashboard">Dashboard</button>
-        <button class="tab" data-tab="users">Users Summary</button>
+        <button class="tab" data-tab="users" id="usersTabBtn" style="display:none;">Users Summary</button>
         <button class="tab" data-tab="admin" id="adminTabBtn" style="display:none;">Role Management</button>
         <button class="tab" data-tab="audit" id="auditTabBtn" style="display:none;">Audit Logs</button>
         <button class="tab" data-tab="help">Help</button>
@@ -374,7 +350,7 @@
 
             <div class="card">
               <h2>Downloads</h2>
-              <p class="muted">Download each contributor’s payment summary (HTML/PDF) from the Users Summary tab.</p>
+              <p class="muted">Download each contributor’s payment summary (HTML/PDF) directly from the vouchers list.</p>
               <div class="callout">
                 Tip: Open a voucher, verify details, then click <strong>Authenticate</strong>.
               </div>
@@ -398,7 +374,7 @@
 
             <div class="card">
               <h2>Downloads</h2>
-              <p class="muted">Download each contributor’s payment summary (HTML/PDF) from the Users Summary tab.</p>
+              <p class="muted">Download each contributor’s payment summary (HTML/PDF) directly from the vouchers list.</p>
               <div class="callout">
                 Approvals are visible instantly to Contributors and Finance.
               </div>
@@ -410,7 +386,7 @@
           <div class="grid2">
             <div class="card">
               <h2>All Vouchers</h2>
-              <p class="muted">Visibility across all vouchers and statuses.</p>
+              <p class="muted">Super Admin visibility across all vouchers and statuses.</p>
               <div class="filters" id="superFilters">
                 <button class="pill active" data-status="">All</button>
                 <button class="pill" data-status="submitted">Submitted</button>
@@ -436,7 +412,7 @@
       <div id="tab-users" class="tabpanel" style="display:none;">
         <div class="card">
           <h2>Users Summary</h2>
-          <p class="muted">Totals and counts per contributor. Finance/Chairman can download each contributor’s report.</p>
+          <p class="muted">Totals and counts per contributor. Finance/Chairman/Super Admin can download each contributor’s report.</p>
           <div id="usersSummary" class="tablewrap"></div>
         </div>
       </div>
@@ -445,9 +421,9 @@
         <div class="grid2">
           <div class="card">
             <h2>Role Management</h2>
-            <p class="muted">Finance/Chairman (accounts self-register first).</p>
+            <p class="muted">Super Admin only. Promote users to Finance/Chairman/Super Admin (accounts self-register first).</p>
             <div class="callout">
-              For client-only security, user creation happens via normal registration.
+              For client-only security, user creation happens via normal registration; then Super Admin sets role here.
             </div>
             <div class="divider"></div>
             <div class="form">
@@ -470,7 +446,7 @@
           <div class="row" style="justify-content: space-between; align-items:center;">
             <div>
               <h2 style="margin:0;">Audit Logs</h2>
-              <div class="muted">Actions across the system.</div>
+              <div class="muted">Super Admin only. Latest actions across the system.</div>
             </div>
             <div class="row">
               <button id="auditRefreshBtn" class="btn btn-ghost">Refresh</button>
@@ -488,10 +464,11 @@
             <li><strong>Contributor:</strong> Register → Login → Upload voucher + date/amount/bank → Track status and download your summary (HTML/PDF).</li>
             <li><strong>Finance Administrator:</strong> View submitted vouchers → Verify voucher file → Authenticate or Reject → Download reports.</li>
             <li><strong>Chairman:</strong> View authenticated vouchers → Approve or Reject → Download reports.</li>
+            <li><strong>Super Admin:</strong> Promote users to Finance/Chairman, view audit logs, see all vouchers.</li>
             <li><strong>Concurrency:</strong> Realtime updates refresh lists when other users act.</li>
           </ul>
           <div class="callout">
-            Checklist.
+            Setup checklist: run <code>supabase_schema.sql</code>, create Storage bucket <code>vouchers</code>, enable realtime for <code>vouchers</code>, then set Supabase URL + anon key in Settings.
           </div>
         </div>
       </div>
@@ -502,160 +479,54 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    // =========================
-    // CONFIG
-    // =========================
-    const cfg = {
-      url: localStorage.getItem("va_supabase_url") || "",
-      anon: localStorage.getItem("va_supabase_anon") || ""
-    };
-  </script>
+  // =========================
+  // SUPABASE (auto-configured)
+  // =========================
+  const cfg = {
+    url: "https://ijfwtwzhqlkmvtcdcjll.supabase.co",
+    anon: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZnd0d3pocWxrbXZ0Y2RjamxsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5NzQ1MjAsImV4cCI6MjA4MTU1MDUyMH0.X0I4VuP7Hae-xo1PPEGnXwzNyaiYlusPb21Jb5Q-g2o"
+  };
 
-  <script>
-    // =========================
-    // UTIL
-    // =========================
-    const $ = (id) => document.getElementById(id);
-    const escapeHtml = (s) => (s ?? "").toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const toastEl = $("toast");
+  let sb = null;
 
-    function toast(msg, ok=true){
-      toastEl.style.display = "block";
-      toastEl.innerHTML = `<div style="font-weight:700;margin-bottom:4px;">${ok ? "OK" : "Notice"}</div><div>${escapeHtml(msg)}</div>`;
-      clearTimeout(window.__toastT);
-      window.__toastT = setTimeout(()=>{toastEl.style.display="none";}, 5200);
+  async function ensureSupabaseLoaded(){
+    if (window.supabase && window.supabase.createClient) return true;
+
+    // Try loading from CDNs (GitHub Pages friendly)
+    const fallbacks = [
+      "https://unpkg.com/@supabase/supabase-js@2",
+      "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    ];
+
+    for (const u of fallbacks){
+      try {
+        await loadScript(u);
+        if (window.supabase && window.supabase.createClient) return true;
+      } catch (_e) {}
     }
+    return false;
+  }
 
-    function money(x){
-      const n = Number(x);
-      if (!Number.isFinite(n)) return (x ?? "");
-      return n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
-    }
-
-    function dt(x){
-      if (!x) return "-";
-      try { return new Date(x).toLocaleString(); } catch { return x; }
-    }
-
-    function badge(status){
-      const cls = status || "";
-      return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
-    }
-
-    function downloadBlob(filename, blob){
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 250);
-    }
-
-    function uuidv4(){
-      return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-      );
-    }
-
-    function loadScript(src){
-      return new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.src = src;
-        s.async = true;
-        s.onload = () => resolve(true);
-        s.onerror = () => reject(new Error("Failed to load: " + src));
-        document.head.appendChild(s);
-      });
-    }
-  </script>
-
-  <script>
-    // =========================
-    // SUPABASE INIT
-    // =========================
-    let sb = null;
-
-    const cfgCard = $("configCard");
-    const cfgUrl = $("cfgUrl");
-    const cfgAnon = $("cfgAnon");
-    const cfgSaveBtn = $("cfgSaveBtn");
-    const cfgClearBtn = $("cfgClearBtn");
-    const settingsBtn = $("settingsBtn");
-
-    cfgUrl.value = cfg.url;
-    cfgAnon.value = cfg.anon;
-
-    settingsBtn.addEventListener("click", ()=>{
-      const isHidden = (cfgCard.style.display === "none");
-      cfgCard.style.display = isHidden ? "block" : "none";
-      if (cfgCard.style.display !== "none"){
-        cfgCard.scrollIntoView({behavior:"smooth", block:"start"});
-      }
-    });
-
-    cfgSaveBtn.addEventListener("click", ()=>{
-      const u = cfgUrl.value.trim();
-      const a = cfgAnon.value.trim();
-      if (!u || !a){ toast("Please provide both Supabase URL and anon key.", false); return; }
-      localStorage.setItem("va_supabase_url", u);
-      localStorage.setItem("va_supabase_anon", a);
-      toast("Saved. Refreshing...");
-      setTimeout(()=>location.reload(), 600);
-    });
-
-    cfgClearBtn.addEventListener("click", ()=>{
-      localStorage.removeItem("va_supabase_url");
-      localStorage.removeItem("va_supabase_anon");
-      toast("Cleared. Refreshing...");
-      setTimeout(()=>location.reload(), 600);
-    });
-
-    async function ensureSupabaseLoaded(){
-      if (window.supabase && window.supabase.createClient) return true;
-
-      // Fallback CDNs
-      const fallbacks = [
-        "https://unpkg.com/@supabase/supabase-js@2",
-        "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-      ];
-      for (const u of fallbacks){
-        try{
-          await loadScript(u);
-          if (window.supabase && window.supabase.createClient) return true;
-        }catch(_){}
-      }
+  async function initSupabase(){
+    const ok = await ensureSupabaseLoaded();
+    if (!ok){
+      toast("Supabase library did not load. Please check your internet connection (CDN access).", false);
       return false;
     }
+    sb = window.supabase.createClient(cfg.url, cfg.anon, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+    return true;
+  }
 
-    async function initSupabase(){
-      if (!cfg.url || !cfg.anon) return false;
-
-      const ok = await ensureSupabaseLoaded();
-      if (!ok){
-        toast("Supabase library did not load. Check internet access to CDN (jsdelivr/unpkg) or try another network.", false);
-        return false;
-      }
-
-      sb = window.supabase.createClient(cfg.url, cfg.anon, {
-        auth: { persistSession: true, autoRefreshToken: true }
-      });
-      return true;
+  function ensureClient(){
+    if (!sb || !sb.auth){
+      toast("System error: Supabase client is not initialized.", false);
+      return false;
     }
-
-    function ensureClient(){
-      if (!sb || !sb.auth){
-        cfgCard.style.display = "block";
-        toast("Supabase is not configured. Click Settings and enter your Supabase URL + anon key, then Save and refresh.", false);
-        return false;
-      }
-      return true;
-    }
-
-    // Auto-collapse config if values exist; Settings can reopen anytime.
-    if (cfg.url && cfg.anon){
-      cfgCard.style.display = "none";
-    }
-  </script>
+    return true;
+  }
+</script>
 
   <script>
     // =========================
@@ -673,6 +544,7 @@
     const superAdminPanel = $("superAdminPanel");
 
     const adminTabBtn = $("adminTabBtn");
+    const usersTabBtn = $("usersTabBtn");
     const auditTabBtn = $("auditTabBtn");
 
     const myVouchersEl = $("myVouchers");
@@ -706,11 +578,12 @@
       superAdminPanel.style.display = "none";
       adminTabBtn.style.display = "none";
       auditTabBtn.style.display = "none";
+      try { usersTabBtn.style.display = "none"; } catch(_e) {}
 
       if (!profile) return;
 
       who.textContent = `${profile.full_name} (${profile.username || profile.email || "-"}) • ${profile.role}`;
-      roleBanner.innerHTML = `<strong>Role:</strong> ${escapeHtml(profile.role)} &nbsp; <span class="muted">| Multi-User Realtime.</span>`;
+      roleBanner.innerHTML = `<strong>Role:</strong> ${escapeHtml(profile.role)} &nbsp; <span class="muted">| Concurrent multi-user via Supabase Realtime.</span>`;
 
       if (profile.role === "contributor"){
         contributorPanel.style.display = "block";
@@ -722,6 +595,7 @@
         superAdminPanel.style.display = "block";
         adminTabBtn.style.display = "inline-block";
         auditTabBtn.style.display = "inline-block";
+        try { usersTabBtn.style.display = "inline-block"; } catch(_e) {}
       }
     }
   </script>
